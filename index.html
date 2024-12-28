@@ -30,69 +30,38 @@
       width: 300px;
       padding: 20px;
       text-align: center;
+      cursor: pointer; /* So the user knows it's clickable */
     }
 
     /* Title styling inside the card */
     #selectedTitle {
+      /* We'll dynamically set font-size in JS, but give a fallback: */
       font-size: 1.4rem;
       font-weight: bold;
-      margin-bottom: 20px;
+      min-height: 60px; /* Ensures some space even for short titles */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 10px;
     }
 
-    /* Button styling */
-    button {
-      background-color: #444444;
-      border: none;
-      border-radius: 4px;
-      color: #ffffff;
-      cursor: pointer;
-      padding: 10px 20px;
-      font-size: 1rem;
-    }
-
-    button:hover {
-      background-color: #666666;
+    /* Hover effect for the card to indicate it's clickable */
+    .card:hover {
+      background-color: #333333;
     }
   </style>
 </head>
 <body>
 
-  <div class="card">
+  <div class="card" id="randomCard">
     <!-- Display the randomly selected title here -->
-    <div id="selectedTitle">No title selected yet</div>
-
-    <!-- Button to trigger random selection -->
-    <button id="randomBtn">Pick a Random Title</button>
+    <div id="selectedTitle">Loading...</div>
   </div>
 
   <script>
-    // Fetch the CSV, parse it, store titles and weights
-    // We'll do this ONCE at the start so it's ready when the user clicks.
     let titles = [];
     let weights = [];
-
-    fetch('./data.csv')  // adjust path if needed
-      .then(response => response.text())
-      .then(csvData => {
-        // Split by newlines to get each row
-        let lines = csvData.trim().split('\n');
-        // Remove the header row ("title,importance")
-        lines.shift();
-
-        for (let line of lines) {
-          // Each row: title,importance
-          // Clean up quotes and spacing
-          let [title, importance] = line.split(',');
-          title = title.replace(/^"|"$/g, '').trim();  // remove surrounding quotes if present
-          importance = parseFloat(importance.trim());
-
-          titles.push(title);
-          weights.push(importance);
-        }
-      })
-      .catch(err => {
-        console.error('Error fetching CSV file:', err);
-      });
 
     // Weighted random selection function
     function getWeightedRandom(array, weightArray) {
@@ -108,15 +77,60 @@
       }
     }
 
-    // On button click, pick a random title
-    document.getElementById('randomBtn').addEventListener('click', () => {
+    // Function to pick a random title and display it
+    function pickRandomTitle() {
       if (titles.length > 0) {
         let randomTitle = getWeightedRandom(titles, weights);
-        document.getElementById('selectedTitle').textContent = randomTitle;
+        // Update the text content
+        let titleEl = document.getElementById('selectedTitle');
+        titleEl.textContent = randomTitle;
+
+        // Dynamically adjust font size based on length
+        // (Here we make longer titles have a larger font as an example)
+        let lengthOfTitle = randomTitle.length;
+        // Base font size (px) plus a little extra per character
+        let baseFontSize = 16; 
+        let scaleFactor = 0.25; 
+        let calculatedFontSize = baseFontSize + (lengthOfTitle * scaleFactor);
+        // Set an upper limit if you like, e.g., 36px
+        if (calculatedFontSize > 36) {
+          calculatedFontSize = 36; 
+        }
+        titleEl.style.fontSize = calculatedFontSize + 'px';
       } else {
         document.getElementById('selectedTitle').textContent = 'CSV not loaded or empty!';
       }
-    });
+    }
+
+    // 1. Fetch the CSV once
+    fetch('./data.csv')
+      .then(response => response.text())
+      .then(csvData => {
+        // Split by newlines to get each row
+        let lines = csvData.trim().split('\n');
+        // Remove the header row ("title,importance")
+        lines.shift();
+
+        for (let line of lines) {
+          let [title, importance] = line.split(',');
+          // Remove quotes if present, trim whitespace
+          title = title.replace(/^"|"$/g, '').trim();
+          importance = parseFloat(importance.trim());
+
+          titles.push(title);
+          weights.push(importance);
+        }
+
+        // 2. Once loaded, pick a random title immediately
+        pickRandomTitle();
+      })
+      .catch(err => {
+        console.error('Error fetching CSV file:', err);
+        document.getElementById('selectedTitle').textContent = 'Error loading CSV!';
+      });
+
+    // 3. Clicking the card picks a new random title
+    document.getElementById('randomCard').addEventListener('click', pickRandomTitle);
   </script>
 </body>
 </html>

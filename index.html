@@ -2,13 +2,13 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Weighted Random from Google Sheet</title>
+  <title>Weighted Random from Google Sheet CSV</title>
   <style>
     body {
-      background-color: #f9f9f9;
       font-family: sans-serif;
       margin: 0;
       padding: 0;
+      background: #f8f8f8;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -17,35 +17,39 @@
     }
     .container {
       background: #fff;
-      border: 1px solid #ddd;
+      border: 1px solid #ccc;
       padding: 20px;
       border-radius: 6px;
-      max-width: 400px;
       text-align: center;
+      max-width: 400px;
     }
-    button {
-      cursor: pointer;
-      padding: 10px 20px;
-      font-size: 16px;
-      background: #4285f4;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      margin-top: 10px;
+    h1 {
+      margin-bottom: 10px;
+      font-size: 1.2em;
     }
-    button:hover {
-      background: #3071e8;
+    #status {
+      font-size: 0.9em;
+      color: #666;
+      margin-top: 5px;
     }
     #randomTitle {
       margin-top: 20px;
       font-weight: bold;
       font-size: 1.2em;
-      min-height: 1.2em; /* space even if empty */
+      min-height: 1.2em; /* ensures space even if empty */
     }
-    #status {
-      font-size: 0.9em;
-      color: #666;
+    button {
       margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 4px;
+      background: #4285f4;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #3367d6;
     }
   </style>
 </head>
@@ -53,13 +57,14 @@
 
 <div class="container">
   <h1>Weighted Random Selector</h1>
-  <div id="status">Fetching latest data...</div>
+  <div id="status">Fetching latest data from sheet...</div>
   <button id="pickBtn" disabled>Pick a Random Title</button>
   <div id="randomTitle"></div>
 </div>
 
 <script>
-  // REPLACE THIS with your own "Publish to the web" CSV link:
+  // 1. PASTE YOUR "Publish to the web" CSV LINK HERE:
+  //    Make sure it's the correct link ending in pub?output=csv
   const googleSheetCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSEUDBRfzB24ENWrLHYarHwzmT2LnUJWtvztcSF0QMzE_zpF0kdRlHwOzSXX4Q8PiQ4yVCWo9TgFa6R/pub?gid=0&single=true&output=csv';
 
   let titles = [];
@@ -82,43 +87,54 @@
   // Fetch the CSV from the Google Sheet
   function fetchSheetData() {
     const statusEl = document.getElementById('status');
-    statusEl.textContent = 'Fetching latest data...';
+    statusEl.textContent = 'Fetching latest data from sheet...';
 
-    // Cache-buster (?nocache=) so the browser always gets fresh data
+    // Cache-buster so we don't get an old version
     fetch(googleSheetCSV + '?nocache=' + Date.now())
       .then(response => response.text())
       .then(csvData => {
-        // Parse CSV
+        console.log('Raw CSV data:\n', csvData); // For debugging
+
+        // Split lines by newline
         let lines = csvData.trim().split('\n');
-        // Remove the header row ("title,importance")
+        console.log('Split lines:', lines); // Debug
+
+        // Remove the header row (title,importance)
         lines.shift();
 
-        // Clear existing arrays
+        // Reset arrays
         titles = [];
         weights = [];
 
         for (let line of lines) {
+          // Example line: "x,1"
+          console.log('Processing line:', line);
           let [title, importance] = line.split(',');
-          // Remove quotes if present, trim whitespace
+
+          // Remove quotes if present and trim
           title = title.replace(/^"|"$/g, '').trim();
           importance = parseFloat(importance.trim());
+
+          // If importance is valid, push to arrays
           if (!isNaN(importance)) {
             titles.push(title);
             weights.push(importance);
+          } else {
+            console.warn('Skipping invalid line:', line);
           }
         }
 
-        if (titles.length === 0) {
-          statusEl.textContent = 'No valid data found in sheet!';
+        // Check if we got any valid rows
+        if (titles.length > 0) {
+          statusEl.textContent = 'Data loaded. You can pick a title now.';
+          document.getElementById('pickBtn').disabled = false;
         } else {
-          statusEl.textContent = 'Data loaded. Click to pick a title.';
+          statusEl.textContent = 'No valid data found in sheet!';
+          document.getElementById('pickBtn').disabled = true;
         }
-        
-        // Re-enable the button
-        document.getElementById('pickBtn').disabled = (titles.length === 0);
       })
       .catch(err => {
-        console.error('Error fetching Google Sheet CSV:', err);
+        console.error('Error fetching CSV:', err);
         document.getElementById('status').textContent = 'Error loading data!';
       });
   }
@@ -126,13 +142,13 @@
   // Pick and display a random title
   function pickRandomTitle() {
     const randomTitle = getWeightedRandom(titles, weights);
-    document.getElementById('randomTitle').textContent = randomTitle || 'No title found!';
+    document.getElementById('randomTitle').textContent = randomTitle || 'No title selected!';
   }
 
-  // On page load, fetch data
+  // 2. Fetch data on page load
   fetchSheetData();
 
-  // When button is clicked, pick a new title
+  // 3. Button event
   document.getElementById('pickBtn').addEventListener('click', pickRandomTitle);
 </script>
 

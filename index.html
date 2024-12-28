@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Weighted Random Selector</title>
+</head>
+<body>
+  <h1>Pick a Weighted Random Title</h1>
+  
+  <!-- Button to trigger the random selection -->
+  <button id="randomBtn">Pick a Random Title</button>
+
+  <!-- Placeholder to display the result -->
+  <p><strong>Random Title: </strong><span id="selectedTitle"></span></p>
+
+  <script>
+    // 1. Fetch the CSV file from the same directory
+    fetch('data.csv')
+      .then(response => response.text())
+      .then(csvData => {
+
+        // 2. Parse CSV manually (basic approach)
+        //    Split into rows by newline, then remove the header row.
+        let lines = csvData.split('\n');
+        // Remove the first line (header: "title,importance")
+        lines.shift();
+
+        // Arrays to hold the data
+        let titles = [];
+        let weights = [];
+
+        // 3. Populate the arrays
+        for (let line of lines) {
+          // Skip any empty lines
+          if (!line.trim()) continue;
+          
+          // Each line should have "title" and "importance" separated by comma
+          let [title, importance] = line.split(',');
+          
+          // Clean up strings
+          title = title.trim().replace(/^"|"$/g, '');   // remove surrounding quotes if any
+          importance = parseFloat(importance.trim());
+
+          titles.push(title);
+          weights.push(importance);
+        }
+
+        // 4. Weighted random function
+        function getWeightedRandom(array, weightArray) {
+          let totalWeight = weightArray.reduce((acc, val) => acc + val, 0);
+          let randomNum = Math.random() * totalWeight;
+          let cumulative = 0;
+
+          for (let i = 0; i < array.length; i++) {
+            cumulative += weightArray[i];
+            if (randomNum < cumulative) {
+              return array[i];
+            }
+          }
+        }
+
+        // 5. When the button is clicked, pick a random title using the weights
+        document.getElementById('randomBtn').addEventListener('click', () => {
+          let randomTitle = getWeightedRandom(titles, weights);
+          document.getElementById('selectedTitle').textContent = randomTitle;
+        });
+      })
+      .catch(err => {
+        console.error('Error fetching CSV file:', err);
+      });
+  </script>
+</body>
+</html>

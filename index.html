@@ -18,32 +18,35 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
+      height: 100vh;
+      width: 100vw;
       color: #ffffff;
+      overflow: hidden; /* So no scrollbars around the card */
     }
 
-    /* Centered card */
+    /* Centered card occupying 75% width and 75% height */
     .card {
       background-color: #222222;
       border-radius: 8px;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-      width: 300px;
-      padding: 20px;
-      text-align: center;
+      width: 75vw;  /* 75% of the viewport width */
+      height: 75vh; /* 75% of the viewport height */
       cursor: pointer; /* So the user knows it's clickable */
-    }
-
-    /* Title styling inside the card */
-    #selectedTitle {
-      /* We'll dynamically set font-size in JS, but give a fallback: */
-      font-size: 1.4rem;
-      font-weight: bold;
-      min-height: 60px; /* Ensures some space even for short titles */
       display: flex;
       align-items: center;
       justify-content: center;
+      position: relative;
+    }
+
+    /* Container for the text */
+    #selectedTitle {
+      /* Let the JS dynamically set the font size. */
       text-align: center;
-      padding: 10px;
+      overflow-wrap: break-word; /* In case of super-long words */
+      word-break: break-word;    /* Another fallback for long words */
+      overflow: hidden;          /* Hide overflow if something goes wrong */
+      width: 90%;                /* Some padding inside the card */
+      height: auto;
     }
 
     /* Hover effect for the card to indicate it's clickable */
@@ -77,28 +80,41 @@
       }
     }
 
+    // Fit text to the card by decreasing font size until it fits.
+    // cardEl: the .card element
+    // textEl: the #selectedTitle element
+    function fitTextToCard(cardEl, textEl) {
+      // Let's start with some reasonably large font size
+      // and shrink until it fits
+      let fontSize = 100; // starting size in px
+      textEl.style.fontSize = fontSize + 'px';
+
+      // We'll reduce font size until scroll width/height is less than card's client size
+      // or until fontSize hits a minimum (e.g., 10px).
+      while ((textEl.scrollHeight > cardEl.clientHeight ||
+              textEl.scrollWidth  > cardEl.clientWidth) && 
+              fontSize > 10) {
+        fontSize--;
+        textEl.style.fontSize = fontSize + 'px';
+      }
+    }
+
     // Function to pick a random title and display it
     function pickRandomTitle() {
+      let titleEl = document.getElementById('selectedTitle');
+      let cardEl = document.getElementById('randomCard');
+
       if (titles.length > 0) {
         let randomTitle = getWeightedRandom(titles, weights);
-        // Update the text content
-        let titleEl = document.getElementById('selectedTitle');
         titleEl.textContent = randomTitle;
 
-        // Dynamically adjust font size based on length
-        // (Here we make longer titles have a larger font as an example)
-        let lengthOfTitle = randomTitle.length;
-        // Base font size (px) plus a little extra per character
-        let baseFontSize = 16; 
-        let scaleFactor = 0.25; 
-        let calculatedFontSize = baseFontSize + (lengthOfTitle * scaleFactor);
-        // Set an upper limit if you like, e.g., 36px
-        if (calculatedFontSize > 36) {
-          calculatedFontSize = 36; 
-        }
-        titleEl.style.fontSize = calculatedFontSize + 'px';
+        // Briefly reset style to ensure no leftover from previous title
+        titleEl.style.fontSize = '100px'; 
+
+        // Now fit the text so it doesn't overflow
+        fitTextToCard(cardEl, titleEl);
       } else {
-        document.getElementById('selectedTitle').textContent = 'CSV not loaded or empty!';
+        titleEl.textContent = 'CSV not loaded or empty!';
       }
     }
 

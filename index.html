@@ -2,155 +2,251 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Weighted Random from Google Sheet CSV</title>
+  <title>Weighted Random Selector</title>
   <style>
-    body {
-      font-family: sans-serif;
+    /* Basic reset */
+    * {
       margin: 0;
       padding: 0;
-      background: #f8f8f8;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    /* Body: dark background, centered content */
+    body {
+      background-color: #121212;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
+      height: 100vh;
+      width: 100vw;
+      color: #ffffff;
+      overflow: hidden; /* Prevent scrollbars */
     }
-    .container {
-      background: #fff;
-      border: 1px solid #ccc;
-      padding: 20px;
-      border-radius: 6px;
+
+    /* Centered card occupying 75% width and 75% height */
+    .card {
+      background-color: #222222;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      width: 75vw;  /* 75% of viewport width */
+      height: 75vh; /* 75% of viewport height */
+      cursor: pointer; /* Indicate it's clickable */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: background-color 0.3s ease;
+    }
+
+    /* Hover effect for the card */
+    .card:hover {
+      background-color: #333333;
+    }
+
+    /* Container for the title */
+    #selectedTitle {
       text-align: center;
-      max-width: 400px;
+      overflow-wrap: break-word; /* Handle long words */
+      word-break: break-word;
+      width: 90%; /* Padding inside the card */
+      height: auto;
+      transition: font-size 0.3s ease;
     }
-    h1 {
-      margin-bottom: 10px;
-      font-size: 1.2em;
+
+    /* Optional: Add a subtle loading spinner or indicator */
+    #loadingSpinner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: none;
     }
-    #status {
-      font-size: 0.9em;
-      color: #666;
-      margin-top: 5px;
+
+    /* Spinner styling */
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid #ffffff;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
     }
-    #randomTitle {
-      margin-top: 20px;
-      font-weight: bold;
-      font-size: 1.2em;
-      min-height: 1.2em; /* ensures space even if empty */
-    }
-    button {
-      margin-top: 10px;
-      padding: 10px 20px;
-      font-size: 16px;
-      border: none;
-      border-radius: 4px;
-      background: #4285f4;
-      color: #fff;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #3367d6;
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <h1>Weighted Random Selector</h1>
-  <div id="status">Fetching latest data from sheet...</div>
-  <button id="pickBtn" disabled>Pick a Random Title</button>
-  <div id="randomTitle"></div>
-</div>
+  <div class="card" id="randomCard">
+    <!-- Loading spinner -->
+    <div id="loadingSpinner">
+      <div class="spinner"></div>
+    </div>
+    <!-- Display the randomly selected title here -->
+    <div id="selectedTitle">Loading...</div>
+  </div>
 
-<script>
-  // 1. PASTE YOUR "Publish to the web" CSV LINK HERE:
-  //    Make sure it's the correct link ending in pub?output=csv
-  const googleSheetCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSEUDBRfzB24ENWrLHYarHwzmT2LnUJWtvztcSF0QMzE_zpF0kdRlHwOzSXX4Q8PiQ4yVCWo9TgFa6R/pub?gid=0&single=true&output=csv';
+  <script>
+    // Your published Google Sheets CSV URL
+    const googleSheetCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSEUDBRfzB24ENWrLHYarHwzmT2LnUJWtvztcSF0QMzE_zpF0kdRlHwOzSXX4Q8PiQ4yVCWo9TgFa6R/pub?gid=0&single=true&output=csv';
 
-  let titles = [];
-  let weights = [];
+    let titles = [];
+    let weights = [];
 
-  // Weighted random selection
-  function getWeightedRandom(array, weightArray) {
-    let totalWeight = weightArray.reduce((acc, val) => acc + val, 0);
-    let randomNum = Math.random() * totalWeight;
-    let cumulative = 0;
+    // Weighted random selection function
+    function getWeightedRandom(array, weightArray) {
+      let totalWeight = weightArray.reduce((acc, val) => acc + val, 0);
+      let randomNum = Math.random() * totalWeight;
+      let cumulative = 0;
 
-    for (let i = 0; i < array.length; i++) {
-      cumulative += weightArray[i];
-      if (randomNum < cumulative) {
-        return array[i];
+      for (let i = 0; i < array.length; i++) {
+        cumulative += weightArray[i];
+        if (randomNum < cumulative) {
+          return array[i];
+        }
+      }
+      return null; // Fallback in case of issues
+    }
+
+    // Function to fit text within the card by adjusting font size
+    function fitTextToCard(cardEl, textEl) {
+      let fontSize = 100; // Starting font size in px
+      textEl.style.fontSize = fontSize + 'px';
+
+      // Reduce font size until the text fits within the card
+      while ((textEl.scrollHeight > cardEl.clientHeight * 0.9 || 
+              textEl.scrollWidth > cardEl.clientWidth * 0.9) && 
+              fontSize > 10) {
+        fontSize--;
+        textEl.style.fontSize = fontSize + 'px';
       }
     }
-  }
 
-  // Fetch the CSV from the Google Sheet
-  function fetchSheetData() {
-    const statusEl = document.getElementById('status');
-    statusEl.textContent = 'Fetching latest data from sheet...';
+    // Function to pick a random title and display it
+    function pickRandomTitle() {
+      const titleEl = document.getElementById('selectedTitle');
+      const cardEl = document.getElementById('randomCard');
+      const loadingEl = document.getElementById('loadingSpinner');
 
-    // Cache-buster so we don't get an old version
-    fetch(googleSheetCSV + '?nocache=' + Date.now())
-      .then(response => response.text())
-      .then(csvData => {
-        console.log('Raw CSV data:\n', csvData); // For debugging
+      if (titles.length > 0 && weights.length > 0) {
+        // Show loading spinner
+        loadingEl.style.display = 'block';
 
-        // Split lines by newline
-        let lines = csvData.trim().split('\n');
-        console.log('Split lines:', lines); // Debug
+        // Pick a random title based on weights
+        let randomTitle = getWeightedRandom(titles, weights);
+        if (randomTitle) {
+          // Update the title text
+          titleEl.textContent = randomTitle;
 
-        // Remove the header row (title,importance)
-        lines.shift();
+          // Reset font size before fitting
+          titleEl.style.fontSize = '100px';
 
-        // Reset arrays
-        titles = [];
-        weights = [];
-
-        for (let line of lines) {
-          // Example line: "x,1"
-          console.log('Processing line:', line);
-          let [title, importance] = line.split(',');
-
-          // Remove quotes if present and trim
-          title = title.replace(/^"|"$/g, '').trim();
-          importance = parseFloat(importance.trim());
-
-          // If importance is valid, push to arrays
-          if (!isNaN(importance)) {
-            titles.push(title);
-            weights.push(importance);
-          } else {
-            console.warn('Skipping invalid line:', line);
-          }
-        }
-
-        // Check if we got any valid rows
-        if (titles.length > 0) {
-          statusEl.textContent = 'Data loaded. You can pick a title now.';
-          document.getElementById('pickBtn').disabled = false;
+          // Adjust font size to fit
+          fitTextToCard(cardEl, titleEl);
         } else {
-          statusEl.textContent = 'No valid data found in sheet!';
-          document.getElementById('pickBtn').disabled = true;
+          titleEl.textContent = 'No title selected!';
         }
-      })
-      .catch(err => {
-        console.error('Error fetching CSV:', err);
-        document.getElementById('status').textContent = 'Error loading data!';
-      });
-  }
 
-  // Pick and display a random title
-  function pickRandomTitle() {
-    const randomTitle = getWeightedRandom(titles, weights);
-    document.getElementById('randomTitle').textContent = randomTitle || 'No title selected!';
-  }
+        // Hide loading spinner after a short delay
+        setTimeout(() => {
+          loadingEl.style.display = 'none';
+        }, 300);
+      } else {
+        titleEl.textContent = 'CSV not loaded or empty!';
+      }
+    }
 
-  // 2. Fetch data on page load
-  fetchSheetData();
+    // Function to fetch and parse CSV data from Google Sheets
+    function fetchSheetData() {
+      const titleEl = document.getElementById('selectedTitle');
+      const loadingEl = document.getElementById('loadingSpinner');
 
-  // 3. Button event
-  document.getElementById('pickBtn').addEventListener('click', pickRandomTitle);
-</script>
+      titleEl.textContent = 'Loading...';
+      loadingEl.style.display = 'block';
 
+      // Determine the correct separator for cache-buster
+      const separator = googleSheetCSV.includes('?') ? '&' : '?';
+      const cacheBuster = 'nocache=' + Date.now();
+
+      fetch(googleSheetCSV + separator + cacheBuster)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok: ' + response.statusText);
+          }
+          return response.text();
+        })
+        .then(csvData => {
+          console.log('Raw CSV data:\n', csvData); // For debugging
+
+          // Split the CSV data into lines
+          let lines = csvData.trim().split('\n');
+          console.log('Split lines:', lines); // Debug
+
+          // Check if CSV has at least one row (header + data)
+          if (lines.length < 2) {
+            throw new Error('CSV does not contain enough rows.');
+          }
+
+          // Remove the header row
+          let header = lines.shift().trim();
+          if (header.toLowerCase() !== 'title,importance') {
+            throw new Error(`CSV header does not match "title,importance". Found: "${header}"`);
+          }
+
+          // Reset arrays
+          titles = [];
+          weights = [];
+
+          // Process each remaining line
+          lines.forEach((line, index) => {
+            console.log(`Processing line ${index + 2}:`, line);
+            let [title, importance] = line.split(',');
+
+            if (title === undefined || importance === undefined) {
+              console.warn(`Skipping invalid line ${index + 2}:`, line);
+              return;
+            }
+
+            // Remove surrounding quotes and trim whitespace
+            title = title.replace(/^"|"$/g, '').trim();
+            importance = parseFloat(importance.trim());
+
+            if (!isNaN(importance)) {
+              titles.push(title);
+              weights.push(importance);
+            } else {
+              console.warn(`Skipping line ${index + 2} due to invalid importance value:`, line);
+            }
+          });
+
+          // Check if any valid data was found
+          if (titles.length > 0) {
+            titleEl.textContent = 'Data loaded. Click the card to pick a title.';
+            // Automatically pick an initial title
+            pickRandomTitle();
+          } else {
+            titleEl.textContent = 'No valid data found in sheet!';
+          }
+
+          // Hide loading spinner
+          loadingEl.style.display = 'none';
+        })
+        .catch(err => {
+          console.error('Error fetching or parsing CSV:', err);
+          document.getElementById('selectedTitle').textContent = 'Error loading data!';
+          // Hide loading spinner
+          loadingEl.style.display = 'none';
+        });
+    }
+
+    // Fetch the sheet data on page load
+    window.addEventListener('load', fetchSheetData);
+
+    // Add event listener to the card to pick a new title on click
+    document.getElementById('randomCard').addEventListener('click', pickRandomTitle);
+  </script>
 </body>
 </html>

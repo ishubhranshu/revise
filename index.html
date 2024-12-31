@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>Weighted Random Selector</title>
   <style>
-    /* Basic reset */
+    /* BASIC STYLES */
     * {
       margin: 0;
       padding: 0;
@@ -12,26 +12,24 @@
       font-family: Arial, sans-serif;
     }
 
-    /* Body: dark background, centered content */
     body {
-      background-color: #121212;
+      background-color: #121212;  /* Dark background */
       display: flex;
       align-items: center;
       justify-content: center;
       height: 100vh;
       width: 100vw;
       color: #ffffff;
-      overflow: hidden; /* Prevent scrollbars */
+      overflow: hidden; /* Prevent scrollbars if text overflows */
     }
 
-    /* Centered card occupying 75% width and 75% height */
     .card {
       background-color: #222222;
       border-radius: 12px;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-      width: 75vw;  /* 75% of viewport width */
-      height: 75vh; /* 75% of viewport height */
-      cursor: pointer; /* Indicate it's clickable */
+      width: 75vw;  
+      height: 75vh; 
+      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -39,102 +37,199 @@
       transition: background-color 0.3s ease;
     }
 
-    /* Hover effect for the card */
     .card:hover {
       background-color: #333333;
     }
 
-    /* Container for the title */
-    #selectedTitle {
-      text-align: center;
-      overflow-wrap: break-word; /* Handle long words */
-      word-break: break-word;
-      width: 90%; /* Padding inside the card */
+    /* Flex container for title & description */
+    .card-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 90%;
       height: auto;
+      text-align: center;
+    }
+
+    /* TITLE STYLING */
+    #selectedTitle {
+      font-size: 2rem;
+      font-weight: bold;
+      margin-bottom: 0.5em;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      width: 100%;
       transition: font-size 0.3s ease;
+    }
+
+    /* DESCRIPTION STYLING */
+    #selectedDescription {
+      font-size: 1.2rem;
+      line-height: 1.4;
+      color: #cccccc;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      width: 100%;
+      /* If your descriptions can be long, uncomment these:
+      max-height: 40%;
+      overflow-y: auto;
+      */
     }
   </style>
 </head>
 <body>
-
+  <!-- CARD CONTAINER -->
   <div class="card" id="randomCard">
-    <!-- Display the randomly selected title here -->
-    <div id="selectedTitle">Loading...</div>
+    <div class="card-content">
+      <!-- TITLE will go here -->
+      <div id="selectedTitle">Loading...</div>
+      <!-- DESCRIPTION will go here -->
+      <div id="selectedDescription"></div>
+    </div>
   </div>
 
   <script>
-    // Your published Google Sheets CSV URL
+    /**
+     * 1) SET YOUR PUBLISHED GOOGLE SHEET CSV LINK
+     *    Make sure your Google Sheet has the columns: 
+     *      topic, title, importance, description
+     *    in that exact order and is published as CSV output.
+     */
     const googleSheetCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSEUDBRfzB24ENWrLHYarHwzmT2LnUJWtvztcSF0QMzE_zpF0kdRlHwOzSXX4Q8PiQ4yVCWo9TgFa6R/pub?gid=0&single=true&output=csv';
 
-    let titles = [];
-    let weights = [];
+    /**
+     * 2) GLOBAL VARIABLES
+     *    rowsData:  will store an array of objects, each with:
+     *               { topic, title, importance, description }
+     *    selectedTopic: if you want to filter by a particular topic, set it here.
+     *                   If left empty, no filter is applied (all topics).
+     */
+    let rowsData = [];
+    let selectedTopic = ''; // e.g. 'Cats', 'Dogs', or empty for all topics
 
-    // Weighted random selection function
-    function getWeightedRandom(array, weightArray) {
+    /**
+     * 3) WEIGHTED RANDOM FUNCTION
+     *    - Takes an array of row objects (each has an 'importance' property).
+     *    - Returns one randomly selected row, weighted by 'importance'.
+     */
+    function getWeightedRandom(rowsArray) {
+      // Extract an array of just weights
+      const weightArray = rowsArray.map(row => row.importance);
+
+      // Sum up all weights
       let totalWeight = weightArray.reduce((acc, val) => acc + val, 0);
+
+      // Random number in [0, totalWeight)
       let randomNum = Math.random() * totalWeight;
       let cumulative = 0;
 
-      for (let i = 0; i < array.length; i++) {
+      // Find which index randomNum lands on
+      for (let i = 0; i < rowsArray.length; i++) {
         cumulative += weightArray[i];
         if (randomNum < cumulative) {
-          return array[i];
+          return rowsArray[i]; // Return the entire object
         }
       }
-      return null; // Fallback in case of issues
+
+      // Fallback in case no row is selected
+      return null;
     }
 
-    // Function to fit text within the card by adjusting font size
+    /**
+     * 4) FIT TEXT TO CARD
+     *    Dynamically shrink text size until it fits within the card's width/height.
+     */
     function fitTextToCard(cardEl, textEl) {
-      let fontSize = 100; // Starting font size in px
+      let fontSize = 100;  // Start with large font
       textEl.style.fontSize = fontSize + 'px';
 
-      // Reduce font size until the text fits within 90% of the card's dimensions
-      while ((textEl.scrollHeight > cardEl.clientHeight * 0.9 || 
-              textEl.scrollWidth > cardEl.clientWidth * 0.9) && 
-              fontSize > 10) {
+      // While text overflows the card, shrink the font size
+      while (
+        (textEl.scrollHeight > cardEl.clientHeight * 0.9 ||
+         textEl.scrollWidth > cardEl.clientWidth * 0.9) &&
+        fontSize > 10
+      ) {
         fontSize--;
         textEl.style.fontSize = fontSize + 'px';
       }
-
-      console.log(`Final font size: ${fontSize}px`);
     }
 
-    // Function to pick a random title and display it
-    function pickRandomTitle() {
-      const titleEl = document.getElementById('selectedTitle');
+    /**
+     * 5) FILTER BY TOPIC
+     *    - Returns only rows whose topic matches selectedTopic.
+     *    - If selectedTopic is empty, returns all rows.
+     */
+    function filterByTopic(data, topic) {
+      if (!topic) {
+        return data; // No filter if empty
+      }
+      // Compare case-insensitively
+      return data.filter(row => row.topic.toLowerCase() === topic.toLowerCase());
+    }
+
+    /**
+     * 6) PICK A RANDOM ROW AND DISPLAY IT
+     *    - Filters rows by selected topic
+     *    - Uses weighted random to pick a row
+     *    - Displays row's title & description
+     *    - Fits the title text (and optionally description) to the card
+     */
+    function pickRandomRow() {
       const cardEl = document.getElementById('randomCard');
+      const titleEl = document.getElementById('selectedTitle');
+      const descEl = document.getElementById('selectedDescription');
 
-      if (titles.length > 0 && weights.length > 0) {
-        // Pick a random title based on weights
-        let randomTitle = getWeightedRandom(titles, weights);
-        if (randomTitle) {
-          // Update the title text
-          titleEl.textContent = randomTitle;
+      // Filter rows by the desired topic
+      let filteredData = filterByTopic(rowsData, selectedTopic);
 
-          // Reset font size before fitting
-          titleEl.style.fontSize = '100px';
+      // If there's no data matching the filter, show a message
+      if (filteredData.length === 0) {
+        titleEl.textContent = 'No data found for this topic!';
+        descEl.textContent = '';
+        return;
+      }
 
-          // Adjust font size to fit
-          fitTextToCard(cardEl, titleEl);
-        } else {
-          titleEl.textContent = 'No title selected!';
-        }
+      // Perform weighted random selection
+      let randomRow = getWeightedRandom(filteredData);
+
+      // If we got a valid row, display it
+      if (randomRow) {
+        titleEl.textContent = randomRow.title;
+        descEl.textContent = randomRow.description;
+
+        // Adjust the font size for the title to fit in the card
+        fitTextToCard(cardEl, titleEl);
+        // Optionally also fit the description
+        // fitTextToCard(cardEl, descEl);
+
       } else {
-        titleEl.textContent = 'CSV not loaded or empty!';
+        // If no row was selected for some reason, show a message
+        titleEl.textContent = 'No title selected!';
+        descEl.textContent = '';
       }
     }
 
-    // Function to fetch and parse CSV data from Google Sheets
+    /**
+     * 7) FETCH THE SHEET DATA
+     *    - Loads CSV data from the published Google Sheets URL
+     *    - Splits into lines, removes header
+     *    - Parses each line into { topic, title, importance, description }
+     *    - Stores them in rowsData
+     *    - Automatically picks a random row once loaded (optional)
+     */
     function fetchSheetData() {
       const titleEl = document.getElementById('selectedTitle');
+      const descEl = document.getElementById('selectedDescription');
 
       titleEl.textContent = 'Loading...';
+      descEl.textContent = '';
 
-      // Determine the correct separator for cache-buster
+      // Add cache-buster
       const separator = googleSheetCSV.includes('?') ? '&' : '?';
       const cacheBuster = 'nocache=' + Date.now();
 
+      // Make the fetch call
       fetch(googleSheetCSV + separator + cacheBuster)
         .then(response => {
           if (!response.ok) {
@@ -143,71 +238,80 @@
           return response.text();
         })
         .then(csvData => {
-          console.log('Raw CSV data:\n', csvData); // For debugging
-
-          // Split the CSV data into lines
+          // Split the CSV into lines
           let lines = csvData.trim().split('\n');
-          console.log('Split lines:', lines); // Debug
 
-          // Check if CSV has at least one row (header + data)
+          // We expect at least the header line + 1 row
           if (lines.length < 2) {
-            throw new Error('CSV does not contain enough rows.');
+            throw new Error('CSV is empty or missing data.');
           }
 
-          // Remove the header row
-          let header = lines.shift().trim();
-          console.log('Header:', header); // Debug
+          // Remove header
+          let header = lines.shift().trim().toLowerCase();
 
-          if (header.toLowerCase() !== 'title,importance') {
-            throw new Error(`CSV header does not match "title,importance". Found: "${header}"`);
+          // We expect "topic,title,importance,description"
+          if (header !== 'topic,title,importance,description') {
+            throw new Error(`CSV header does not match "topic,title,importance,description". Found: "${header}"`);
           }
 
-          // Reset arrays
-          titles = [];
-          weights = [];
+          // Reset our rowsData array
+          rowsData = [];
 
-          // Process each remaining line
+          // Parse each line: topic, title, importance, description
           lines.forEach((line, index) => {
-            console.log(`Processing line ${index + 2}:`, line);
-            let [title, importance] = line.split(',');
-
-            if (title === undefined || importance === undefined) {
+            // Split by comma
+            let columns = line.split(',');
+            if (columns.length < 4) {
               console.warn(`Skipping invalid line ${index + 2}:`, line);
               return;
             }
 
-            // Remove surrounding quotes and trim whitespace
-            title = title.replace(/^"|"$/g, '').trim();
-            importance = parseFloat(importance.trim());
+            // Extract and clean values
+            let topicValue = columns[0].trim();
+            let titleValue = columns[1].trim();
+            let importanceValue = parseFloat(columns[2].trim());
+            let descriptionValue = columns[3].trim();
 
-            if (!isNaN(importance)) {
-              titles.push(title);
-              weights.push(importance);
+            // Only push if importance is a valid number
+            if (!isNaN(importanceValue)) {
+              rowsData.push({
+                topic: topicValue,
+                title: titleValue,
+                importance: importanceValue,
+                description: descriptionValue
+              });
             } else {
-              console.warn(`Skipping line ${index + 2} due to invalid importance value:`, line);
+              console.warn(
+                `Skipping line ${index + 2} due to invalid importance value:`,
+                columns[2]
+              );
             }
           });
 
-          // Check if any valid data was found
-          if (titles.length > 0) {
+          // If we have data, let the user pick a row
+          if (rowsData.length > 0) {
             titleEl.textContent = 'Data loaded. Click the card to pick a title.';
-            // Automatically pick an initial title
-            pickRandomTitle();
+            // Optionally pick one immediately:
+            pickRandomRow();
           } else {
-            titleEl.textContent = 'No valid data found in sheet!';
+            titleEl.textContent = 'No valid data found in the sheet.';
+            descEl.textContent = '';
           }
         })
         .catch(err => {
           console.error('Error fetching or parsing CSV:', err);
-          document.getElementById('selectedTitle').textContent = 'Error loading data!';
+          titleEl.textContent = 'Error loading data!';
+          descEl.textContent = '';
         });
     }
 
-    // Fetch the sheet data on page load
+    // 8) EVENT LISTENERS
+    // Fetch data on page load
     window.addEventListener('load', fetchSheetData);
 
-    // Add event listener to the card to pick a new title on click
-    document.getElementById('randomCard').addEventListener('click', pickRandomTitle);
+    // When the card is clicked, pick a new random row
+    document.getElementById('randomCard').addEventListener('click', pickRandomRow);
+
   </script>
 </body>
 </html>

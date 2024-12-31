@@ -2,9 +2,9 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Weighted Random Selector</title>
+  <title>Weighted Random Selector with Multi-Select Filter</title>
   <style>
-    /* BASIC STYLES */
+    /* BASIC RESET */
     * {
       margin: 0;
       padding: 0;
@@ -13,22 +13,42 @@
     }
 
     body {
-      background-color: #121212;  /* Dark background */
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      background-color: #121212;
+      color: #ffffff;
       height: 100vh;
       width: 100vw;
-      color: #ffffff;
-      overflow: hidden; /* Prevent scrollbars if text overflows */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: start;
+      overflow: hidden; /* prevent scrollbars */
+      padding-top: 20px; /* space for dropdown */
     }
 
+    /* CONTAINER FOR THE MULTI-SELECT DROPDOWN */
+    .dropdown-container {
+      margin-bottom: 10px; 
+      text-align: center;
+    }
+
+    label {
+      margin-right: 10px; 
+    }
+
+    select {
+      font-size: 1rem;
+      padding: 5px;
+      min-width: 200px;
+      max-width: 300px;
+    }
+
+    /* CARD STYLING */
     .card {
       background-color: #222222;
       border-radius: 12px;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-      width: 75vw;  
-      height: 75vh; 
+      width: 75vw;
+      height: 70vh;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -41,7 +61,6 @@
       background-color: #333333;
     }
 
-    /* Flex container for title & description */
     .card-content {
       display: flex;
       flex-direction: column;
@@ -52,7 +71,7 @@
       text-align: center;
     }
 
-    /* TITLE STYLING */
+    /* TITLE */
     #selectedTitle {
       font-size: 2rem;
       font-weight: bold;
@@ -63,7 +82,7 @@
       transition: font-size 0.3s ease;
     }
 
-    /* DESCRIPTION STYLING */
+    /* DESCRIPTION */
     #selectedDescription {
       font-size: 1.2rem;
       line-height: 1.4;
@@ -71,7 +90,7 @@
       word-break: break-word;
       overflow-wrap: break-word;
       width: 100%;
-      /* If your descriptions can be long, uncomment these:
+      /* If descriptions can be very long, uncomment:
       max-height: 40%;
       overflow-y: auto;
       */
@@ -79,72 +98,88 @@
   </style>
 </head>
 <body>
-  <!-- CARD CONTAINER -->
+
+  <!-- 1) MULTI-SELECT DROPDOWN FOR TOPICS -->
+  <div class="dropdown-container">
+    <label for="topicSelect">Select Topics:</label>
+    <select id="topicSelect" multiple>
+      <!-- Options will be populated dynamically based on CSV topics -->
+    </select>
+  </div>
+
+  <!-- 2) CARD THAT DISPLAYS TITLE & DESCRIPTION -->
   <div class="card" id="randomCard">
     <div class="card-content">
-      <!-- TITLE will go here -->
       <div id="selectedTitle">Loading...</div>
-      <!-- DESCRIPTION will go here -->
       <div id="selectedDescription"></div>
     </div>
   </div>
 
   <script>
     /**
-     * 1) SET YOUR PUBLISHED GOOGLE SHEET CSV LINK
-     *    Make sure your Google Sheet has the columns: 
-     *      topic, title, importance, description
-     *    in that exact order and is published as CSV output.
+     * 1) YOUR PUBLISHED GOOGLE SHEET CSV LINK 
+     *    Make sure columns are: topic, title, importance, description
      */
-    const googleSheetCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSEUDBRfzB24ENWrLHYarHwzmT2LnUJWtvztcSF0QMzE_zpF0kdRlHwOzSXX4Q8PiQ4yVCWo9TgFa6R/pub?gid=0&single=true&output=csv';
+    const googleSheetCSV = 'YOUR_GOOGLE_SHEET_CSV_LINK';
 
     /**
      * 2) GLOBAL VARIABLES
-     *    rowsData:  will store an array of objects, each with:
+     *    rowsData:  will store array of objects, each with:
      *               { topic, title, importance, description }
-     *    selectedTopic: if you want to filter by a particular topic, set it here.
-     *                   If left empty, no filter is applied (all topics).
+     *    uniqueTopics: will store all unique topic values for populating the multi-select.
      */
     let rowsData = [];
-    let selectedTopic = ''; // e.g. 'Cats', 'Dogs', or empty for all topics
+    let uniqueTopics = [];
 
     /**
-     * 3) WEIGHTED RANDOM FUNCTION
-     *    - Takes an array of row objects (each has an 'importance' property).
-     *    - Returns one randomly selected row, weighted by 'importance'.
+     * 3) GET SELECTED TOPICS (from the multi-select dropdown)
+     */
+    function getSelectedTopics() {
+      const selectEl = document.getElementById('topicSelect');
+      // Return array of selected values
+      return Array.from(selectEl.selectedOptions).map(option => option.value);
+    }
+
+    /**
+     * 4) FILTER DATA BY SELECTED TOPICS
+     *    If no topics are selected, we consider that as "select all".
+     */
+    function filterByTopics(data, topics) {
+      if (!topics || topics.length === 0) {
+        return data; // no filter
+      }
+      // Filter rows whose row.topic matches one of the selected topics
+      return data.filter(row => topics.includes(row.topic));
+    }
+
+    /**
+     * 5) WEIGHTED RANDOM SELECTION
+     *    Returns one randomly selected row, weighted by 'importance'.
      */
     function getWeightedRandom(rowsArray) {
-      // Extract an array of just weights
       const weightArray = rowsArray.map(row => row.importance);
-
-      // Sum up all weights
       let totalWeight = weightArray.reduce((acc, val) => acc + val, 0);
-
-      // Random number in [0, totalWeight)
       let randomNum = Math.random() * totalWeight;
       let cumulative = 0;
 
-      // Find which index randomNum lands on
       for (let i = 0; i < rowsArray.length; i++) {
         cumulative += weightArray[i];
         if (randomNum < cumulative) {
-          return rowsArray[i]; // Return the entire object
+          return rowsArray[i];
         }
       }
-
-      // Fallback in case no row is selected
+      // Fallback if none is selected
       return null;
     }
 
     /**
-     * 4) FIT TEXT TO CARD
-     *    Dynamically shrink text size until it fits within the card's width/height.
+     * 6) FIT TEXT TO CARD
+     *    Dynamically shrink the text size until it fits within the card.
      */
     function fitTextToCard(cardEl, textEl) {
-      let fontSize = 100;  // Start with large font
+      let fontSize = 100; 
       textEl.style.fontSize = fontSize + 'px';
 
-      // While text overflows the card, shrink the font size
       while (
         (textEl.scrollHeight > cardEl.clientHeight * 0.9 ||
          textEl.scrollWidth > cardEl.clientWidth * 0.9) &&
@@ -156,67 +191,64 @@
     }
 
     /**
-     * 5) FILTER BY TOPIC
-     *    - Returns only rows whose topic matches selectedTopic.
-     *    - If selectedTopic is empty, returns all rows.
-     */
-    function filterByTopic(data, topic) {
-      if (!topic) {
-        return data; // No filter if empty
-      }
-      // Compare case-insensitively
-      return data.filter(row => row.topic.toLowerCase() === topic.toLowerCase());
-    }
-
-    /**
-     * 6) PICK A RANDOM ROW AND DISPLAY IT
-     *    - Filters rows by selected topic
-     *    - Uses weighted random to pick a row
-     *    - Displays row's title & description
-     *    - Fits the title text (and optionally description) to the card
+     * 7) DISPLAY A RANDOM ROW (filtered by selected topics)
      */
     function pickRandomRow() {
       const cardEl = document.getElementById('randomCard');
       const titleEl = document.getElementById('selectedTitle');
       const descEl = document.getElementById('selectedDescription');
 
-      // Filter rows by the desired topic
-      let filteredData = filterByTopic(rowsData, selectedTopic);
+      // Get the topics user selected
+      const selectedTopics = getSelectedTopics();
+      // Filter the data by these topics
+      let filteredData = filterByTopics(rowsData, selectedTopics);
 
-      // If there's no data matching the filter, show a message
       if (filteredData.length === 0) {
-        titleEl.textContent = 'No data found for this topic!';
+        titleEl.textContent = 'No data found for the selected topics!';
         descEl.textContent = '';
         return;
       }
 
-      // Perform weighted random selection
+      // Weighted random pick
       let randomRow = getWeightedRandom(filteredData);
-
-      // If we got a valid row, display it
       if (randomRow) {
         titleEl.textContent = randomRow.title;
         descEl.textContent = randomRow.description;
 
-        // Adjust the font size for the title to fit in the card
+        // Fit the title text to the card
         fitTextToCard(cardEl, titleEl);
         // Optionally also fit the description
         // fitTextToCard(cardEl, descEl);
-
       } else {
-        // If no row was selected for some reason, show a message
         titleEl.textContent = 'No title selected!';
         descEl.textContent = '';
       }
     }
 
     /**
-     * 7) FETCH THE SHEET DATA
-     *    - Loads CSV data from the published Google Sheets URL
-     *    - Splits into lines, removes header
-     *    - Parses each line into { topic, title, importance, description }
-     *    - Stores them in rowsData
-     *    - Automatically picks a random row once loaded (optional)
+     * 8) POPULATE THE TOPIC MULTI-SELECT DROPDOWN 
+     *    Once we have the list of unique topics from the CSV.
+     */
+    function populateTopicDropdown(topics) {
+      const selectEl = document.getElementById('topicSelect');
+      // Clear existing options
+      selectEl.innerHTML = '';
+
+      // Optionally, you can add an "All" label or instruction at the top (not selected)
+      // like a placeholder, but multi-select doesn't always use placeholders.
+      // We'll just skip that here.
+
+      // For each unique topic, create an <option>
+      topics.forEach(topic => {
+        let optionEl = document.createElement('option');
+        optionEl.value = topic;
+        optionEl.textContent = topic;
+        selectEl.appendChild(optionEl);
+      });
+    }
+
+    /**
+     * 9) FETCH THE SHEET DATA, PARSE CSV
      */
     function fetchSheetData() {
       const titleEl = document.getElementById('selectedTitle');
@@ -225,11 +257,10 @@
       titleEl.textContent = 'Loading...';
       descEl.textContent = '';
 
-      // Add cache-buster
+      // Add a cache-buster param
       const separator = googleSheetCSV.includes('?') ? '&' : '?';
       const cacheBuster = 'nocache=' + Date.now();
 
-      // Make the fetch call
       fetch(googleSheetCSV + separator + cacheBuster)
         .then(response => {
           if (!response.ok) {
@@ -238,41 +269,34 @@
           return response.text();
         })
         .then(csvData => {
-          // Split the CSV into lines
           let lines = csvData.trim().split('\n');
-
-          // We expect at least the header line + 1 row
           if (lines.length < 2) {
             throw new Error('CSV is empty or missing data.');
           }
 
-          // Remove header
+          // Check header
           let header = lines.shift().trim().toLowerCase();
-
-          // We expect "topic,title,importance,description"
           if (header !== 'topic,title,importance,description') {
             throw new Error(`CSV header does not match "topic,title,importance,description". Found: "${header}"`);
           }
 
-          // Reset our rowsData array
+          // Reset arrays
           rowsData = [];
+          uniqueTopics = [];
 
-          // Parse each line: topic, title, importance, description
+          // Process each row
           lines.forEach((line, index) => {
-            // Split by comma
             let columns = line.split(',');
             if (columns.length < 4) {
               console.warn(`Skipping invalid line ${index + 2}:`, line);
               return;
             }
 
-            // Extract and clean values
             let topicValue = columns[0].trim();
             let titleValue = columns[1].trim();
             let importanceValue = parseFloat(columns[2].trim());
             let descriptionValue = columns[3].trim();
 
-            // Only push if importance is a valid number
             if (!isNaN(importanceValue)) {
               rowsData.push({
                 topic: topicValue,
@@ -288,30 +312,36 @@
             }
           });
 
-          // If we have data, let the user pick a row
+          // Build list of unique topics
+          uniqueTopics = [...new Set(rowsData.map(row => row.topic))];
+
+          // Populate the multi-select dropdown
+          populateTopicDropdown(uniqueTopics);
+
+          // Display a message or auto-pick an item
           if (rowsData.length > 0) {
-            titleEl.textContent = 'Data loaded. Click the card to pick a title.';
-            // Optionally pick one immediately:
-            pickRandomRow();
+            titleEl.textContent = 'Data loaded. Select topic(s) above and click the card.';
           } else {
             titleEl.textContent = 'No valid data found in the sheet.';
-            descEl.textContent = '';
           }
         })
         .catch(err => {
           console.error('Error fetching or parsing CSV:', err);
           titleEl.textContent = 'Error loading data!';
-          descEl.textContent = '';
         });
     }
 
-    // 8) EVENT LISTENERS
+    /* 10) EVENT LISTENERS */
     // Fetch data on page load
     window.addEventListener('load', fetchSheetData);
 
-    // When the card is clicked, pick a new random row
-    document.getElementById('randomCard').addEventListener('click', pickRandomRow);
+    // Every time we change the selection, we can optionally auto-pick:
+    document.getElementById('topicSelect').addEventListener('change', () => {
+      pickRandomRow(); 
+    });
 
+    // Clicking the card picks a new random row from the selected topics
+    document.getElementById('randomCard').addEventListener('click', pickRandomRow);
   </script>
 </body>
 </html>

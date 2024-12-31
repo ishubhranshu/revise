@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Weighted Random Selector with Multi-Select Filter</title>
+  <title>Weighted Random Selector with Styled Multi-Select Filter</title>
   <style>
     /* BASIC RESET */
     * {
@@ -21,25 +21,80 @@
       flex-direction: column;
       align-items: center;
       justify-content: start;
-      overflow: hidden; /* prevent scrollbars */
-      padding-top: 20px; /* space for dropdown */
+      overflow: hidden; /* Prevent scrollbars */
+      padding-top: 20px; /* Space for dropdown */
     }
 
-    /* CONTAINER FOR THE MULTI-SELECT DROPDOWN */
+    /* CUSTOM MULTI-SELECT DROPDOWN STYLING */
     .dropdown-container {
-      margin-bottom: 10px; 
-      text-align: center;
+      position: relative;
+      width: 300px;
+      margin-bottom: 20px;
     }
 
-    label {
-      margin-right: 10px; 
+    .dropdown-selected {
+      background-color: #222222;
+      border: 1px solid #444444;
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
-    select {
-      font-size: 1rem;
-      padding: 5px;
-      min-width: 200px;
-      max-width: 300px;
+    .dropdown-selected:hover {
+      background-color: #333333;
+    }
+
+    .dropdown-selected::after {
+      content: '';
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      display: inline-block;
+      padding: 4px;
+      transform: rotate(45deg);
+      transition: transform 0.3s ease;
+      margin-left: 10px;
+    }
+
+    .dropdown-container.active .dropdown-selected::after {
+      transform: rotate(-135deg);
+    }
+
+    .dropdown-options {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background-color: #222222;
+      border: 1px solid #444444;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+    }
+
+    .dropdown-container.active .dropdown-options {
+      display: block;
+    }
+
+    .dropdown-option {
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .dropdown-option:hover {
+      background-color: #333333;
+    }
+
+    .dropdown-option input {
+      margin-right: 10px;
+      cursor: pointer;
     }
 
     /* CARD STYLING */
@@ -95,16 +150,42 @@
       overflow-y: auto;
       */
     }
+
+    /* SCROLLBAR STYLING FOR OPTIONS */
+    .dropdown-options::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .dropdown-options::-webkit-scrollbar-track {
+      background: #222222;
+    }
+
+    .dropdown-options::-webkit-scrollbar-thumb {
+      background-color: #555555;
+      border-radius: 4px;
+    }
+
+    /* RESPONSIVE DESIGN */
+    @media (max-width: 768px) {
+      .card {
+        width: 90vw;
+        height: 60vh;
+      }
+
+      .dropdown-container {
+        width: 90%;
+      }
+    }
   </style>
 </head>
 <body>
 
-  <!-- 1) MULTI-SELECT DROPDOWN FOR TOPICS -->
-  <div class="dropdown-container">
-    <label for="topicSelect">Select Topics:</label>
-    <select id="topicSelect" multiple>
+  <!-- 1) CUSTOM MULTI-SELECT DROPDOWN FOR TOPICS -->
+  <div class="dropdown-container" id="dropdownContainer">
+    <div class="dropdown-selected" id="dropdownSelected">Select Topics</div>
+    <div class="dropdown-options" id="dropdownOptions">
       <!-- Options will be populated dynamically based on CSV topics -->
-    </select>
+    </div>
   </div>
 
   <!-- 2) CARD THAT DISPLAYS TITLE & DESCRIPTION -->
@@ -132,12 +213,17 @@
     let uniqueTopics = [];
 
     /**
-     * 3) GET SELECTED TOPICS (from the multi-select dropdown)
+     * 3) GET SELECTED TOPICS (from the custom multi-select dropdown)
      */
     function getSelectedTopics() {
-      const selectEl = document.getElementById('topicSelect');
-      // Return array of selected values
-      return Array.from(selectEl.selectedOptions).map(option => option.value);
+      const checkboxes = document.querySelectorAll('.dropdown-option input[type="checkbox"]');
+      let selected = [];
+      checkboxes.forEach(cb => {
+        if (cb.checked) {
+          selected.push(cb.value);
+        }
+      });
+      return selected;
     }
 
     /**
@@ -146,7 +232,7 @@
      */
     function filterByTopics(data, topics) {
       if (!topics || topics.length === 0) {
-        return data; // no filter
+        return data; // No filter
       }
       // Filter rows whose row.topic matches one of the selected topics
       return data.filter(row => topics.includes(row.topic));
@@ -219,6 +305,7 @@
         fitTextToCard(cardEl, titleEl);
         // Optionally also fit the description
         // fitTextToCard(cardEl, descEl);
+
       } else {
         titleEl.textContent = 'No title selected!';
         descEl.textContent = '';
@@ -230,25 +317,72 @@
      *    Once we have the list of unique topics from the CSV.
      */
     function populateTopicDropdown(topics) {
-      const selectEl = document.getElementById('topicSelect');
+      const dropdownOptions = document.getElementById('dropdownOptions');
+      const dropdownSelected = document.getElementById('dropdownSelected');
+
       // Clear existing options
-      selectEl.innerHTML = '';
+      dropdownOptions.innerHTML = '';
 
-      // Optionally, you can add an "All" label or instruction at the top (not selected)
-      // like a placeholder, but multi-select doesn't always use placeholders.
-      // We'll just skip that here.
-
-      // For each unique topic, create an <option>
+      // For each unique topic, create an option with a checkbox
       topics.forEach(topic => {
-        let optionEl = document.createElement('option');
-        optionEl.value = topic;
-        optionEl.textContent = topic;
-        selectEl.appendChild(optionEl);
+        let optionEl = document.createElement('div');
+        optionEl.classList.add('dropdown-option');
+
+        let checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `topic-${topic}`;
+        checkbox.value = topic;
+
+        let label = document.createElement('label');
+        label.htmlFor = `topic-${topic}`;
+        label.textContent = topic;
+
+        optionEl.appendChild(checkbox);
+        optionEl.appendChild(label);
+        dropdownOptions.appendChild(optionEl);
       });
+
+      // Update the dropdown-selected text based on selected options
+      dropdownOptions.addEventListener('change', updateSelectedText);
+      updateSelectedText(); // Initialize
     }
 
     /**
-     * 9) FETCH THE SHEET DATA, PARSE CSV
+     * 9) UPDATE THE DISPLAY TEXT OF DROPDOWN SELECTED
+     */
+    function updateSelectedText() {
+      const selectedTopics = getSelectedTopics();
+      const dropdownSelected = document.getElementById('dropdownSelected');
+
+      if (selectedTopics.length === 0) {
+        dropdownSelected.textContent = 'Select Topics';
+      } else if (selectedTopics.length === 1) {
+        dropdownSelected.textContent = selectedTopics[0];
+      } else {
+        dropdownSelected.textContent = `${selectedTopics.length} Topics Selected`;
+      }
+    }
+
+    /**
+     * 10) TOGGLE DROPDOWN MENU
+     */
+    function toggleDropdown() {
+      const dropdownContainer = document.getElementById('dropdownContainer');
+      dropdownContainer.classList.toggle('active');
+    }
+
+    /**
+     * 11) CLOSE DROPDOWN WHEN CLICKING OUTSIDE
+     */
+    function closeDropdownOnClickOutside(event) {
+      const dropdownContainer = document.getElementById('dropdownContainer');
+      if (!dropdownContainer.contains(event.target)) {
+        dropdownContainer.classList.remove('active');
+      }
+    }
+
+    /**
+     * 12) FETCH THE SHEET DATA, PARSE CSV
      */
     function fetchSheetData() {
       const titleEl = document.getElementById('selectedTitle');
@@ -261,6 +395,7 @@
       const separator = googleSheetCSV.includes('?') ? '&' : '?';
       const cacheBuster = 'nocache=' + Date.now();
 
+      // Make the fetch call
       fetch(googleSheetCSV + separator + cacheBuster)
         .then(response => {
           if (!response.ok) {
@@ -295,7 +430,7 @@
             let topicValue = columns[0].trim();
             let titleValue = columns[1].trim();
             let importanceValue = parseFloat(columns[2].trim());
-            let descriptionValue = columns[3].trim();
+            let descriptionValue = columns.slice(3).join(',').trim(); // In case description contains commas
 
             if (!isNaN(importanceValue)) {
               rowsData.push({
@@ -313,7 +448,7 @@
           });
 
           // Build list of unique topics
-          uniqueTopics = [...new Set(rowsData.map(row => row.topic))];
+          uniqueTopics = [...new Set(rowsData.map(row => row.topic))].sort();
 
           // Populate the multi-select dropdown
           populateTopicDropdown(uniqueTopics);
@@ -327,20 +462,24 @@
         })
         .catch(err => {
           console.error('Error fetching or parsing CSV:', err);
+          const titleEl = document.getElementById('selectedTitle');
           titleEl.textContent = 'Error loading data!';
+          const descEl = document.getElementById('selectedDescription');
+          descEl.textContent = '';
         });
     }
 
-    /* 10) EVENT LISTENERS */
+    /* 13) EVENT LISTENERS */
+    // Toggle dropdown when selected area is clicked
+    document.getElementById('dropdownSelected').addEventListener('click', toggleDropdown);
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', closeDropdownOnClickOutside);
+
     // Fetch data on page load
     window.addEventListener('load', fetchSheetData);
 
-    // Every time we change the selection, we can optionally auto-pick:
-    document.getElementById('topicSelect').addEventListener('change', () => {
-      pickRandomRow(); 
-    });
-
-    // Clicking the card picks a new random row from the selected topics
+    // When the card is clicked, pick a new random row
     document.getElementById('randomCard').addEventListener('click', pickRandomRow);
   </script>
 </body>

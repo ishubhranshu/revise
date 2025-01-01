@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Weighted Random Selector with Styled Multi-Select Filter</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Responsive Weighted Random Selector</title>
   <style>
     /* BASIC RESET */
     * {
@@ -20,12 +21,12 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start; /* Start from the top */
-      overflow: hidden; /* Prevent scrollbars */
-      padding: 20px; /* General padding */
+      justify-content: center;
+      overflow: hidden;
+      padding: 20px;
     }
 
-    /* CUSTOM MULTI-SELECT DROPDOWN STYLING */
+    /* DROPDOWN CONTAINER */
     .dropdown-container {
       position: relative;
       width: 300px;
@@ -36,11 +37,12 @@
       background-color: #222222;
       border: 1px solid #444444;
       border-radius: 8px;
-      padding: 10px;
+      padding: 12px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      font-size: 1rem;
     }
 
     .dropdown-selected:hover {
@@ -52,7 +54,7 @@
       border: solid white;
       border-width: 0 2px 2px 0;
       display: inline-block;
-      padding: 4px;
+      padding: 6px;
       transform: rotate(45deg);
       transition: transform 0.3s ease;
       margin-left: 10px;
@@ -82,15 +84,16 @@
       display: block;
     }
 
-    /* SEARCH INPUT STYLING */
+    /* SEARCH INPUT */
     .dropdown-search {
       width: 100%;
-      padding: 8px;
+      padding: 10px;
       margin-bottom: 10px;
       border: 1px solid #444444;
       border-radius: 4px;
       background-color: #333333;
       color: #ffffff;
+      font-size: 1rem;
     }
 
     .dropdown-search::placeholder {
@@ -99,16 +102,17 @@
 
     /* SELECT ALL OPTION */
     .dropdown-option.select-all {
-      padding: 8px 10px;
+      padding: 10px;
       border-bottom: 1px solid #444444;
     }
 
-    /* DROPDOWN OPTION STYLING */
+    /* DROPDOWN OPTION */
     .dropdown-option {
-      padding: 8px 10px;
+      padding: 10px;
       display: flex;
       align-items: center;
       cursor: pointer;
+      font-size: 1rem;
     }
 
     .dropdown-option:hover {
@@ -118,6 +122,8 @@
     .dropdown-option input {
       margin-right: 10px;
       cursor: pointer;
+      width: 20px;
+      height: 20px;
     }
 
     /* CARD STYLING */
@@ -125,16 +131,12 @@
       background-color: #222222;
       border-radius: 12px;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-      width: 75vw;
-      height: 70vh;
-      cursor: pointer;
+      width: 90%; /* 90% of screen width */
+      height: 90%; /* 90% of screen height */
       display: flex;
-      align-items: center;
       justify-content: center;
-      position: relative;
+      align-items: center;
       transition: background-color 0.3s ease;
-      margin-top: auto; /* Push the card to take remaining space */
-      margin-bottom: auto;
     }
 
     .card:hover {
@@ -146,102 +148,51 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      width: 90%;
-      height: auto;
+      width: 100%;
+      height: 100%;
       text-align: center;
+      padding: 10px;
     }
 
-    /* TITLE */
+    /* CARD TITLE */
     #selectedTitle {
-      font-size: 2rem;
+      font-size: clamp(2rem, 5vw, 3rem); /* Dynamically adjust size between 2rem and 3rem */
       font-weight: bold;
-      margin-bottom: 0.5em;
-      word-break: break-word;
-      overflow-wrap: break-word;
-      width: 100%;
-      transition: font-size 0.3s ease;
+      text-align: center;
+      color: #ffffff;
+      margin-bottom: 1em;
     }
 
-    /* DESCRIPTION */
+    /* CARD DESCRIPTION */
     #selectedDescription {
-      font-size: 1.2rem;
-      line-height: 1.4;
+      font-size: clamp(1rem, 3vw, 1.5rem); /* Dynamically adjust size between 1rem and 1.5rem */
       color: #cccccc;
-      word-break: break-word;
-      overflow-wrap: break-word;
-      width: 100%;
-      /* If descriptions can be very long, uncomment:
-      max-height: 40%;
-      overflow-y: auto;
-      */
-    }
-
-    /* SCROLLBAR STYLING FOR OPTIONS */
-    .dropdown-options::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    .dropdown-options::-webkit-scrollbar-track {
-      background: #222222;
-    }
-
-    .dropdown-options::-webkit-scrollbar-thumb {
-      background-color: #555555;
-      border-radius: 4px;
-    }
-
-    /* LOADING INDICATOR */
-    #loadingIndicator {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 1.5rem;
-      display: none;
-    }
-
-    /* RESPONSIVE DESIGN */
-    @media (max-width: 768px) {
-      /* Adjust card size for mobile devices */
-      .card {
-        width: 90vw;
-        height: 60vh;
-      }
-
-      .dropdown-container {
-        width: 90%;
-      }
-
-      /* Responsive Font Size for Mobile Devices */
-      #selectedTitle {
-        font-size: 1.5rem; /* Adjust as needed for better visibility on mobile */
-      }
+      text-align: center;
+      white-space: pre-line; /* Render newlines */
+      line-height: 1.5;
     }
   </style>
 </head>
 <body>
 
-  <!-- LOADING INDICATOR -->
-  <div id="loadingIndicator">Loading...</div>
-
-  <!-- 1) CUSTOM MULTI-SELECT DROPDOWN FOR TOPICS -->
-  <div class="dropdown-container" id="dropdownContainer" role="combobox" aria-haspopup="listbox" aria-expanded="false">
-    <div class="dropdown-selected" id="dropdownSelected" tabindex="0" aria-label="Select Topics" aria-controls="dropdownOptions" aria-expanded="false">Select Topics</div>
-    <div class="dropdown-options" id="dropdownOptions" role="listbox">
+  <!-- DROPDOWN FOR TOPIC SELECTION -->
+  <div class="dropdown-container" id="dropdownContainer">
+    <div class="dropdown-selected" id="dropdownSelected">All Topics Selected</div>
+    <div class="dropdown-options" id="dropdownOptions">
       <!-- Search Input -->
-      <input type="text" id="dropdownSearch" class="dropdown-search" placeholder="Search topics..." aria-label="Search Topics">
+      <input type="text" id="dropdownSearch" class="dropdown-search" placeholder="Search topics...">
       
       <!-- Select All Option -->
       <div class="dropdown-option select-all">
-        <input type="checkbox" id="selectAll" />
+        <input type="checkbox" id="selectAll" checked> <!-- Default to checked -->
         <label for="selectAll">Select All</label>
       </div>
       
-      <!-- Dynamic Options Will Appear Here -->
+      <!-- Dynamic Options Will Be Added Here -->
     </div>
   </div>
 
-  <!-- 2) CARD THAT DISPLAYS TITLE & DESCRIPTION -->
+  <!-- RANDOMLY SELECTED CARD -->
   <div class="card" id="randomCard">
     <div class="card-content">
       <div id="selectedTitle">Loading...</div>
@@ -249,399 +200,140 @@
     </div>
   </div>
 
-  <!-- Include Papa Parse via CDN for robust CSV parsing -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-
   <script>
-    /**
-     * 1)   PUBLISHED GOOGLE SHEET CSV LINK 
-     *      columns are: topic, title, importance, description
-     */
     const googleSheetCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSEUDBRfzB24ENWrLHYarHwzmT2LnUJWtvztcSF0QMzE_zpF0kdRlHwOzSXX4Q8PiQ4yVCWo9TgFa6R/pub?gid=0&single=true&output=csv';
 
-    /**
-     * 2) GLOBAL VARIABLES
-     *    rowsData:  will store array of objects, each with:
-     *               { topic, title, importance, description }
-     *    uniqueTopics: will store all unique topic values for populating the multi-select.
-     */
     let rowsData = [];
     let uniqueTopics = [];
-    let currentRandomRow = null;
 
-    /**
-     * 3) GET SELECTED TOPICS (from the custom multi-select dropdown)
-     */
-    function getSelectedTopics() {
-      const checkboxes = document.querySelectorAll('.dropdown-option:not(.select-all) input[type="checkbox"]');
-      let selected = [];
-      checkboxes.forEach(cb => {
-        if (cb.checked) {
-          selected.push(cb.value);
-        }
-      });
-      return selected;
-    }
+    async function fetchSheetData() {
+      try {
+        const response = await fetch(googleSheetCSV);
+        const csvData = await response.text();
+        const lines = csvData.trim().split('\n');
+        const headers = lines.shift().split(',');
 
-    /**
-     * 4) FILTER DATA BY SELECTED TOPICS
-     *    If no topics are selected, we consider that as "select all".
-     */
-    function filterByTopics(data, topics) {
-      if (!topics || topics.length === 0) {
-        return data; // No filter
-      }
-      // Filter rows whose row.topic matches one of the selected topics
-      return data.filter(row => topics.includes(row.topic));
-    }
+        rowsData = lines.map(line => {
+          const values = line.split(',');
+          return {
+            topic: values[0].trim(),
+            title: values[1].trim(),
+            importance: parseFloat(values[2]),
+            description: values.slice(3).join(',').trim()
+          };
+        });
 
-    /**
-     * 5) WEIGHTED RANDOM SELECTION
-     *    Returns one randomly selected row, weighted by 'importance'.
-     */
-    function getWeightedRandom(rowsArray) {
-      const weightArray = rowsArray.map(row => row.importance);
-      let totalWeight = weightArray.reduce((acc, val) => acc + val, 0);
-      let randomNum = Math.random() * totalWeight;
-      let cumulative = 0;
-
-      for (let i = 0; i < rowsArray.length; i++) {
-        cumulative += weightArray[i];
-        if (randomNum < cumulative) {
-          return rowsArray[i];
-        }
-      }
-      // Fallback if none is selected
-      return null;
-    }
-
-    /**
-     * 6) FIT TEXT TO CARD
-     *    Dynamically shrink the text size until it fits within the card.
-     */
-    function fitTextToCard(cardEl, textEl) {
-      // Determine if the device is mobile based on screen width
-      const isMobile = window.innerWidth <= 768;
-      
-      // Set starting font size based on device type
-      let fontSize = isMobile ? 40 : 100; // Adjust as needed
-      textEl.style.fontSize = fontSize + 'px';
-
-      // Define minimum font size based on device type
-      const minFontSize = isMobile ? 16 : 10; // Prevent going below 16px on mobile
-
-      // Reduce font size until it fits or reaches the minimum font size
-      while (
-        (textEl.scrollHeight > cardEl.clientHeight * 0.9 ||
-         textEl.scrollWidth > cardEl.clientWidth * 0.9) &&
-        fontSize > minFontSize
-      ) {
-        fontSize--;
-        textEl.style.fontSize = fontSize + 'px';
+        uniqueTopics = [...new Set(rowsData.map(row => row.topic))];
+        populateDropdown(uniqueTopics);
+        displayRandomRow(rowsData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
       }
     }
 
-    /**
-     * 7) DISPLAY A RANDOM ROW (filtered by selected topics)
-     */
-    function pickRandomRow() {
-      const cardEl = document.getElementById('randomCard');
-      const titleEl = document.getElementById('selectedTitle');
-      const descEl = document.getElementById('selectedDescription');
-
-      // Get the topics user selected
-      const selectedTopics = getSelectedTopics();
-      // Filter the data by these topics
-      let filteredData = filterByTopics(rowsData, selectedTopics);
-
-      if (filteredData.length === 0) {
-        titleEl.textContent = 'No data found for the selected topics!';
-        descEl.textContent = '';
-        return;
-      }
-
-      // Weighted random pick
-      let randomRow = getWeightedRandom(filteredData);
-      if (randomRow) {
-        currentRandomRow = randomRow; // Store current row
-        titleEl.textContent = randomRow.title;
-        descEl.textContent = randomRow.description;
-
-        // Fit the title text to the card only on larger screens
-        if (window.innerWidth > 768) {
-          fitTextToCard(cardEl, titleEl);
-        } else {
-          // Reset font size for mobile devices
-          titleEl.style.fontSize = ''; // Allows CSS to control the font size
-        }
-
-        // Optionally also fit the description
-        // fitTextToCard(cardEl, descEl);
-
-      } else {
-        titleEl.textContent = 'No title selected!';
-        descEl.textContent = '';
-      }
-    }
-
-    /**
-     * 8) POPULATE THE TOPIC MULTI-SELECT DROPDOWN 
-     *    Once we have the list of unique topics from the CSV.
-     */
-    function populateTopicDropdown(topics) {
+    function populateDropdown(topics) {
       const dropdownOptions = document.getElementById('dropdownOptions');
-      const dropdownSelected = document.getElementById('dropdownSelected');
+      const selectAllCheckbox = document.getElementById('selectAll');
 
-      // Clear existing options except the search and select all
-      dropdownOptions.querySelectorAll('.dropdown-option:not(.select-all)').forEach(option => option.remove());
-
-      // For each unique topic, create an option with a checkbox
       topics.forEach(topic => {
-        let optionEl = document.createElement('div');
-        optionEl.classList.add('dropdown-option');
+        const option = document.createElement('div');
+        option.classList.add('dropdown-option');
 
-        let checkbox = document.createElement('input');
+        const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.id = `topic-${topic}`;
         checkbox.value = topic;
+        checkbox.checked = true; // Default to checked
 
-        let label = document.createElement('label');
-        label.htmlFor = `topic-${topic}`;
+        const label = document.createElement('label');
         label.textContent = topic;
 
-        optionEl.appendChild(checkbox);
-        optionEl.appendChild(label);
-        dropdownOptions.appendChild(optionEl);
+        option.appendChild(checkbox);
+        option.appendChild(label);
+        dropdownOptions.appendChild(option);
       });
 
-      // Update the dropdown-selected text based on selected options
-      updateSelectedText();
-      updateSelectAllCheckbox();
+      // Handle Select All functionality
+      selectAllCheckbox.addEventListener('change', () => {
+        const checkboxes = dropdownOptions.querySelectorAll('input[type="checkbox"]:not(#selectAll)');
+        checkboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
+        updateDropdownText();
+      });
+
+      // Handle individual checkbox changes
+      dropdownOptions.addEventListener('change', updateDropdownText);
+
+      const searchInput = document.getElementById('dropdownSearch');
+      searchInput.addEventListener('input', () => {
+        const query = searchInput.value.toLowerCase();
+        dropdownOptions.querySelectorAll('.dropdown-option:not(.select-all)').forEach(option => {
+          const label = option.querySelector('label').textContent.toLowerCase();
+          option.style.display = label.includes(query) ? 'flex' : 'none';
+        });
+      });
+
+      updateDropdownText(); // Initialize the dropdown text
     }
 
-    /**
-     * 9) UPDATE THE DISPLAY TEXT OF DROPDOWN SELECTED
-     */
-    function updateSelectedText() {
-      const selectedTopics = getSelectedTopics();
+    function updateDropdownText() {
       const dropdownSelected = document.getElementById('dropdownSelected');
+      const selectAllCheckbox = document.getElementById('selectAll');
+      const checkboxes = Array.from(document.querySelectorAll('.dropdown-option input[type="checkbox"]:not(#selectAll)'));
+      const selectedTopics = checkboxes.filter(cb => cb.checked).map(cb => cb.value);
 
       if (selectedTopics.length === 0) {
         dropdownSelected.textContent = 'Select Topics';
-      } else if (selectedTopics.length === 1) {
-        dropdownSelected.textContent = selectedTopics[0];
+      } else if (selectedTopics.length === checkboxes.length) {
+        dropdownSelected.textContent = 'All Topics Selected';
+        selectAllCheckbox.checked = true;
       } else {
         dropdownSelected.textContent = `${selectedTopics.length} Topics Selected`;
-      }
-    }
-
-    /**
-     * 10) TOGGLE DROPDOWN MENU
-     */
-    function toggleDropdown() {
-      const dropdownContainer = document.getElementById('dropdownContainer');
-      const isActive = dropdownContainer.classList.toggle('active');
-      
-      // Update ARIA attributes for accessibility
-      document.getElementById('dropdownSelected').setAttribute('aria-expanded', isActive);
-    }
-
-    /**
-     * 11) CLOSE DROPDOWN WHEN CLICKING OUTSIDE
-     */
-    function closeDropdownOnClickOutside(event) {
-      const dropdownContainer = document.getElementById('dropdownContainer');
-      if (!dropdownContainer.contains(event.target)) {
-        dropdownContainer.classList.remove('active');
-        document.getElementById('dropdownSelected').setAttribute('aria-expanded', 'false');
-      }
-    }
-
-    /**
-     * 12) FETCH THE SHEET DATA, PARSE CSV USING Papa Parse
-     */
-    function fetchSheetData() {
-      const titleEl = document.getElementById('selectedTitle');
-      const descEl = document.getElementById('selectedDescription');
-      const loadingIndicator = document.getElementById('loadingIndicator');
-
-      // Show loading indicator
-      loadingIndicator.style.display = 'block';
-      titleEl.textContent = 'Loading...';
-      descEl.textContent = '';
-
-      // Add a cache-buster param
-      const separator = googleSheetCSV.includes('?') ? '&' : '?';
-      const cacheBuster = 'nocache=' + Date.now();
-
-      // Make the fetch call
-      fetch(googleSheetCSV + separator + cacheBuster)
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('Network response was not ok: ' + response.statusText);
-          }
-          return response.text();
-        })
-        .then(csvData => {
-          Papa.parse(csvData, {
-            header: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-              const data = results.data;
-              const expectedHeaders = ['topic', 'title', 'importance', 'description'];
-              const actualHeaders = results.meta.fields.map(field => field.toLowerCase());
-              const isValid = expectedHeaders.every(header => actualHeaders.includes(header));
-              if (!isValid) {
-                throw new Error(`CSV headers must include: ${expectedHeaders.join(', ')}`);
-              }
-
-              rowsData = data.map(row => ({
-                topic: row.topic.trim(),
-                title: row.title.trim(),
-                importance: parseFloat(row.importance),
-                description: row.description.trim()
-              })).filter(row => !isNaN(row.importance));
-
-              uniqueTopics = [...new Set(rowsData.map(row => row.topic))].sort();
-              populateTopicDropdown(uniqueTopics);
-              initializeAdditionalFeatures(); // Initialize after dropdown is populated
-
-              // Update UI accordingly
-              if (rowsData.length > 0) {
-                titleEl.textContent = 'Data loaded. Select topic(s) above and click the card.';
-              } else {
-                titleEl.textContent = 'No valid data found in the sheet.';
-              }
-
-              // Hide loading indicator
-              loadingIndicator.style.display = 'none';
-            },
-            error: function(err) {
-              throw err;
-            }
-          });
-        })
-        .catch(err => {
-          console.error('Error fetching or parsing CSV:', err);
-          titleEl.textContent = 'Error loading data!';
-          descEl.textContent = '';
-          loadingIndicator.style.display = 'none';
-        });
-    }
-
-    /**
-     * 13) HANDLE SEARCH FUNCTIONALITY
-     */
-    function handleSearch() {
-      const searchInput = document.getElementById('dropdownSearch');
-      const options = document.querySelectorAll('.dropdown-option:not(.select-all)');
-
-      searchInput.addEventListener('input', () => {
-        const query = searchInput.value.toLowerCase();
-        options.forEach(option => {
-          const label = option.querySelector('label').textContent.toLowerCase();
-          if (label.includes(query)) {
-            option.style.display = 'flex';
-          } else {
-            option.style.display = 'none';
-          }
-        });
-      });
-    }
-
-    /**
-     * 14) HANDLE SELECT ALL FUNCTIONALITY
-     */
-    function handleSelectAll() {
-      const selectAllCheckbox = document.getElementById('selectAll');
-      const topicCheckboxes = document.querySelectorAll('.dropdown-option:not(.select-all) input[type="checkbox"]');
-
-      // When "Select All" is clicked
-      selectAllCheckbox.addEventListener('change', () => {
-        const isChecked = selectAllCheckbox.checked;
-        topicCheckboxes.forEach(cb => {
-          cb.checked = isChecked;
-        });
-        updateSelectedText();
-        updateSelectAllCheckbox(); // Update the state after selecting/deselecting all
-      });
-
-      // Update "Select All" based on individual checkbox changes
-      topicCheckboxes.forEach(cb => {
-        cb.addEventListener('change', () => {
-          updateSelectAllCheckbox();
-          updateSelectedText();
-        });
-      });
-    }
-
-    /**
-     * 15) UPDATE SELECT ALL CHECKBOX STATE
-     */
-    function updateSelectAllCheckbox() {
-      const selectAllCheckbox = document.getElementById('selectAll');
-      const topicCheckboxes = document.querySelectorAll('.dropdown-option:not(.select-all) input[type="checkbox"]');
-      const total = topicCheckboxes.length;
-      const checked = document.querySelectorAll('.dropdown-option:not(.select-all) input[type="checkbox"]:checked').length;
-
-      if (checked === 0) {
         selectAllCheckbox.checked = false;
-        selectAllCheckbox.indeterminate = false;
-      } else if (checked === total) {
-        selectAllCheckbox.checked = true;
-        selectAllCheckbox.indeterminate = false;
-      } else {
-        selectAllCheckbox.checked = false;
-        selectAllCheckbox.indeterminate = true;
       }
     }
 
-    /**
-     * 16) INITIALIZE EVENT LISTENERS FOR NEW FEATURES
-     */
-    function initializeAdditionalFeatures() {
-      handleSearch();
-      handleSelectAll();
-    }
+    function displayRandomRow(data) {
+      const filteredTopics = Array.from(document.querySelectorAll('.dropdown-option input[type="checkbox"]:checked'))
+        .map(cb => cb.value);
 
-    /**
-     * 17) EVENT LISTENERS
-     */
-    // Toggle dropdown when selected area is clicked
-    document.getElementById('dropdownSelected').addEventListener('click', toggleDropdown);
+      const filteredData = filteredTopics.length
+        ? data.filter(row => filteredTopics.includes(row.topic))
+        : data;
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', closeDropdownOnClickOutside);
+      if (filteredData.length === 0) {
+        document.getElementById('selectedTitle').textContent = 'No Data Found';
+        document.getElementById('selectedDescription').textContent = '';
+        return;
+      }
 
-    // Fetch data on page load
-    window.addEventListener('load', fetchSheetData);
+      const totalWeight = filteredData.reduce((sum, row) => sum + row.importance, 0);
+      let randomWeight = Math.random() * totalWeight;
 
-    // When the card is clicked, pick a new random row
-    document.getElementById('randomCard').addEventListener('click', pickRandomRow);
-
-    /* 18) HANDLE WINDOW RESIZE */
-    /**
-     * Handle window resize to re-fit text appropriately
-     */
-    window.addEventListener('resize', () => {
-      // Only adjust if there's content loaded and a row is currently displayed
-      if (rowsData.length > 0 && currentRandomRow) {
-        const titleEl = document.getElementById('selectedTitle');
-        const descEl = document.getElementById('selectedDescription');
-        const cardEl = document.getElementById('randomCard');
-
-        titleEl.textContent = currentRandomRow.title;
-        descEl.textContent = currentRandomRow.description;
-
-        // Fit the title text to the card only on larger screens
-        if (window.innerWidth > 768) {
-          fitTextToCard(cardEl, titleEl);
-        } else {
-          // Reset font size for mobile devices
-          titleEl.style.fontSize = ''; // Allows CSS to control the font size
+      for (const row of filteredData) {
+        randomWeight -= row.importance;
+        if (randomWeight <= 0) {
+          document.getElementById('selectedTitle').textContent = row.title;
+          document.getElementById('selectedDescription').textContent = row.description.replace(/\\n/g, '\n'); // Replace \n with newlines
+          break;
         }
       }
+    }
+
+    document.getElementById('randomCard').addEventListener('click', () => {
+      displayRandomRow(rowsData);
     });
+
+    document.getElementById('dropdownSelected').addEventListener('click', () => {
+      document.getElementById('dropdownContainer').classList.toggle('active');
+    });
+
+    document.addEventListener('click', e => {
+      const dropdownContainer = document.getElementById('dropdownContainer');
+      if (!dropdownContainer.contains(e.target)) {
+        dropdownContainer.classList.remove('active');
+      }
+    });
+
+    window.addEventListener('load', fetchSheetData);
   </script>
 </body>
 </html>

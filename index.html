@@ -20,9 +20,9 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: start;
+      justify-content: flex-start; /* Start from the top */
       overflow: hidden; /* Prevent scrollbars */
-      padding-top: 20px; /* Space for dropdown */
+      padding: 20px; /* General padding */
     }
 
     /* CUSTOM MULTI-SELECT DROPDOWN STYLING */
@@ -71,18 +71,41 @@
       border: 1px solid #444444;
       border-top: none;
       border-radius: 0 0 8px 8px;
-      max-height: 200px;
+      max-height: 300px;
       overflow-y: auto;
       z-index: 1000;
       display: none;
+      padding: 10px;
     }
 
     .dropdown-container.active .dropdown-options {
       display: block;
     }
 
+    /* SEARCH INPUT STYLING */
+    .dropdown-search {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      border: 1px solid #444444;
+      border-radius: 4px;
+      background-color: #333333;
+      color: #ffffff;
+    }
+
+    .dropdown-search::placeholder {
+      color: #aaaaaa;
+    }
+
+    /* SELECT ALL OPTION */
+    .dropdown-option.select-all {
+      padding: 8px 10px;
+      border-bottom: 1px solid #444444;
+    }
+
+    /* DROPDOWN OPTION STYLING */
     .dropdown-option {
-      padding: 10px;
+      padding: 8px 10px;
       display: flex;
       align-items: center;
       cursor: pointer;
@@ -110,6 +133,8 @@
       justify-content: center;
       position: relative;
       transition: background-color 0.3s ease;
+      margin-top: auto; /* Push the card to take remaining space */
+      margin-bottom: auto;
     }
 
     .card:hover {
@@ -165,8 +190,19 @@
       border-radius: 4px;
     }
 
+    /* LOADING INDICATOR */
+    #loadingIndicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 1.5rem;
+      display: none;
+    }
+
     /* RESPONSIVE DESIGN */
     @media (max-width: 768px) {
+      /* Adjust card size for mobile devices */
       .card {
         width: 90vw;
         height: 60vh;
@@ -175,16 +211,33 @@
       .dropdown-container {
         width: 90%;
       }
+
+      /* Responsive Font Size for Mobile Devices */
+      #selectedTitle {
+        font-size: 1.5rem; /* Adjust as needed for better visibility on mobile */
+      }
     }
   </style>
 </head>
 <body>
 
+  <!-- LOADING INDICATOR -->
+  <div id="loadingIndicator">Loading...</div>
+
   <!-- 1) CUSTOM MULTI-SELECT DROPDOWN FOR TOPICS -->
-  <div class="dropdown-container" id="dropdownContainer">
-    <div class="dropdown-selected" id="dropdownSelected">Select Topics</div>
-    <div class="dropdown-options" id="dropdownOptions">
-      <!-- Options will be populated dynamically based on CSV topics -->
+  <div class="dropdown-container" id="dropdownContainer" role="combobox" aria-haspopup="listbox" aria-expanded="false">
+    <div class="dropdown-selected" id="dropdownSelected" tabindex="0" aria-label="Select Topics" aria-controls="dropdownOptions" aria-expanded="false">Select Topics</div>
+    <div class="dropdown-options" id="dropdownOptions" role="listbox">
+      <!-- Search Input -->
+      <input type="text" id="dropdownSearch" class="dropdown-search" placeholder="Search topics..." aria-label="Search Topics">
+      
+      <!-- Select All Option -->
+      <div class="dropdown-option select-all">
+        <input type="checkbox" id="selectAll" />
+        <label for="selectAll">Select All</label>
+      </div>
+      
+      <!-- Dynamic Options Will Appear Here -->
     </div>
   </div>
 
@@ -196,10 +249,13 @@
     </div>
   </div>
 
+  <!-- Include Papa Parse via CDN for robust CSV parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+
   <script>
     /**
-     * 1) YOUR PUBLISHED GOOGLE SHEET CSV LINK 
-     *    Make sure columns are: topic, title, importance, description
+     * 1)   PUBLISHED GOOGLE SHEET CSV LINK 
+     *      columns are: topic, title, importance, description
      */
     const googleSheetCSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSEUDBRfzB24ENWrLHYarHwzmT2LnUJWtvztcSF0QMzE_zpF0kdRlHwOzSXX4Q8PiQ4yVCWo9TgFa6R/pub?gid=0&single=true&output=csv';
 
@@ -211,12 +267,13 @@
      */
     let rowsData = [];
     let uniqueTopics = [];
+    let currentRandomRow = null;
 
     /**
      * 3) GET SELECTED TOPICS (from the custom multi-select dropdown)
      */
     function getSelectedTopics() {
-      const checkboxes = document.querySelectorAll('.dropdown-option input[type="checkbox"]');
+      const checkboxes = document.querySelectorAll('.dropdown-option:not(.select-all) input[type="checkbox"]');
       let selected = [];
       checkboxes.forEach(cb => {
         if (cb.checked) {
@@ -263,13 +320,21 @@
      *    Dynamically shrink the text size until it fits within the card.
      */
     function fitTextToCard(cardEl, textEl) {
-      let fontSize = 100; 
+      // Determine if the device is mobile based on screen width
+      const isMobile = window.innerWidth <= 768;
+      
+      // Set starting font size based on device type
+      let fontSize = isMobile ? 40 : 100; // Adjust as needed
       textEl.style.fontSize = fontSize + 'px';
 
+      // Define minimum font size based on device type
+      const minFontSize = isMobile ? 16 : 10; // Prevent going below 16px on mobile
+
+      // Reduce font size until it fits or reaches the minimum font size
       while (
         (textEl.scrollHeight > cardEl.clientHeight * 0.9 ||
          textEl.scrollWidth > cardEl.clientWidth * 0.9) &&
-        fontSize > 10
+        fontSize > minFontSize
       ) {
         fontSize--;
         textEl.style.fontSize = fontSize + 'px';
@@ -298,11 +363,18 @@
       // Weighted random pick
       let randomRow = getWeightedRandom(filteredData);
       if (randomRow) {
+        currentRandomRow = randomRow; // Store current row
         titleEl.textContent = randomRow.title;
         descEl.textContent = randomRow.description;
 
-        // Fit the title text to the card
-        fitTextToCard(cardEl, titleEl);
+        // Fit the title text to the card only on larger screens
+        if (window.innerWidth > 768) {
+          fitTextToCard(cardEl, titleEl);
+        } else {
+          // Reset font size for mobile devices
+          titleEl.style.fontSize = ''; // Allows CSS to control the font size
+        }
+
         // Optionally also fit the description
         // fitTextToCard(cardEl, descEl);
 
@@ -320,8 +392,8 @@
       const dropdownOptions = document.getElementById('dropdownOptions');
       const dropdownSelected = document.getElementById('dropdownSelected');
 
-      // Clear existing options
-      dropdownOptions.innerHTML = '';
+      // Clear existing options except the search and select all
+      dropdownOptions.querySelectorAll('.dropdown-option:not(.select-all)').forEach(option => option.remove());
 
       // For each unique topic, create an option with a checkbox
       topics.forEach(topic => {
@@ -343,8 +415,8 @@
       });
 
       // Update the dropdown-selected text based on selected options
-      dropdownOptions.addEventListener('change', updateSelectedText);
-      updateSelectedText(); // Initialize
+      updateSelectedText();
+      updateSelectAllCheckbox();
     }
 
     /**
@@ -368,7 +440,10 @@
      */
     function toggleDropdown() {
       const dropdownContainer = document.getElementById('dropdownContainer');
-      dropdownContainer.classList.toggle('active');
+      const isActive = dropdownContainer.classList.toggle('active');
+      
+      // Update ARIA attributes for accessibility
+      document.getElementById('dropdownSelected').setAttribute('aria-expanded', isActive);
     }
 
     /**
@@ -378,16 +453,20 @@
       const dropdownContainer = document.getElementById('dropdownContainer');
       if (!dropdownContainer.contains(event.target)) {
         dropdownContainer.classList.remove('active');
+        document.getElementById('dropdownSelected').setAttribute('aria-expanded', 'false');
       }
     }
 
     /**
-     * 12) FETCH THE SHEET DATA, PARSE CSV
+     * 12) FETCH THE SHEET DATA, PARSE CSV USING Papa Parse
      */
     function fetchSheetData() {
       const titleEl = document.getElementById('selectedTitle');
       const descEl = document.getElementById('selectedDescription');
+      const loadingIndicator = document.getElementById('loadingIndicator');
 
+      // Show loading indicator
+      loadingIndicator.style.display = 'block';
       titleEl.textContent = 'Loading...';
       descEl.textContent = '';
 
@@ -404,72 +483,130 @@
           return response.text();
         })
         .then(csvData => {
-          let lines = csvData.trim().split('\n');
-          if (lines.length < 2) {
-            throw new Error('CSV is empty or missing data.');
-          }
+          Papa.parse(csvData, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+              const data = results.data;
+              const expectedHeaders = ['topic', 'title', 'importance', 'description'];
+              const actualHeaders = results.meta.fields.map(field => field.toLowerCase());
+              const isValid = expectedHeaders.every(header => actualHeaders.includes(header));
+              if (!isValid) {
+                throw new Error(`CSV headers must include: ${expectedHeaders.join(', ')}`);
+              }
 
-          // Check header
-          let header = lines.shift().trim().toLowerCase();
-          if (header !== 'topic,title,importance,description') {
-            throw new Error(`CSV header does not match "topic,title,importance,description". Found: "${header}"`);
-          }
+              rowsData = data.map(row => ({
+                topic: row.topic.trim(),
+                title: row.title.trim(),
+                importance: parseFloat(row.importance),
+                description: row.description.trim()
+              })).filter(row => !isNaN(row.importance));
 
-          // Reset arrays
-          rowsData = [];
-          uniqueTopics = [];
+              uniqueTopics = [...new Set(rowsData.map(row => row.topic))].sort();
+              populateTopicDropdown(uniqueTopics);
+              initializeAdditionalFeatures(); // Initialize after dropdown is populated
 
-          // Process each row
-          lines.forEach((line, index) => {
-            let columns = line.split(',');
-            if (columns.length < 4) {
-              console.warn(`Skipping invalid line ${index + 2}:`, line);
-              return;
-            }
+              // Update UI accordingly
+              if (rowsData.length > 0) {
+                titleEl.textContent = 'Data loaded. Select topic(s) above and click the card.';
+              } else {
+                titleEl.textContent = 'No valid data found in the sheet.';
+              }
 
-            let topicValue = columns[0].trim();
-            let titleValue = columns[1].trim();
-            let importanceValue = parseFloat(columns[2].trim());
-            let descriptionValue = columns.slice(3).join(',').trim(); // In case description contains commas
-
-            if (!isNaN(importanceValue)) {
-              rowsData.push({
-                topic: topicValue,
-                title: titleValue,
-                importance: importanceValue,
-                description: descriptionValue
-              });
-            } else {
-              console.warn(
-                `Skipping line ${index + 2} due to invalid importance value:`,
-                columns[2]
-              );
+              // Hide loading indicator
+              loadingIndicator.style.display = 'none';
+            },
+            error: function(err) {
+              throw err;
             }
           });
-
-          // Build list of unique topics
-          uniqueTopics = [...new Set(rowsData.map(row => row.topic))].sort();
-
-          // Populate the multi-select dropdown
-          populateTopicDropdown(uniqueTopics);
-
-          // Display a message or auto-pick an item
-          if (rowsData.length > 0) {
-            titleEl.textContent = 'Data loaded. Select topic(s) above and click the card.';
-          } else {
-            titleEl.textContent = 'No valid data found in the sheet.';
-          }
         })
         .catch(err => {
           console.error('Error fetching or parsing CSV:', err);
-          const titleEl = document.getElementById('selectedTitle');
           titleEl.textContent = 'Error loading data!';
-          const descEl = document.getElementById('selectedDescription');
           descEl.textContent = '';
+          loadingIndicator.style.display = 'none';
         });
     }
 
-    /* 13) EVENT LISTENERS */
+    /**
+     * 13) HANDLE SEARCH FUNCTIONALITY
+     */
+    function handleSearch() {
+      const searchInput = document.getElementById('dropdownSearch');
+      const options = document.querySelectorAll('.dropdown-option:not(.select-all)');
+
+      searchInput.addEventListener('input', () => {
+        const query = searchInput.value.toLowerCase();
+        options.forEach(option => {
+          const label = option.querySelector('label').textContent.toLowerCase();
+          if (label.includes(query)) {
+            option.style.display = 'flex';
+          } else {
+            option.style.display = 'none';
+          }
+        });
+      });
+    }
+
+    /**
+     * 14) HANDLE SELECT ALL FUNCTIONALITY
+     */
+    function handleSelectAll() {
+      const selectAllCheckbox = document.getElementById('selectAll');
+      const topicCheckboxes = document.querySelectorAll('.dropdown-option:not(.select-all) input[type="checkbox"]');
+
+      // When "Select All" is clicked
+      selectAllCheckbox.addEventListener('change', () => {
+        const isChecked = selectAllCheckbox.checked;
+        topicCheckboxes.forEach(cb => {
+          cb.checked = isChecked;
+        });
+        updateSelectedText();
+        updateSelectAllCheckbox(); // Update the state after selecting/deselecting all
+      });
+
+      // Update "Select All" based on individual checkbox changes
+      topicCheckboxes.forEach(cb => {
+        cb.addEventListener('change', () => {
+          updateSelectAllCheckbox();
+          updateSelectedText();
+        });
+      });
+    }
+
+    /**
+     * 15) UPDATE SELECT ALL CHECKBOX STATE
+     */
+    function updateSelectAllCheckbox() {
+      const selectAllCheckbox = document.getElementById('selectAll');
+      const topicCheckboxes = document.querySelectorAll('.dropdown-option:not(.select-all) input[type="checkbox"]');
+      const total = topicCheckboxes.length;
+      const checked = document.querySelectorAll('.dropdown-option:not(.select-all) input[type="checkbox"]:checked').length;
+
+      if (checked === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+      } else if (checked === total) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+      } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+      }
+    }
+
+    /**
+     * 16) INITIALIZE EVENT LISTENERS FOR NEW FEATURES
+     */
+    function initializeAdditionalFeatures() {
+      handleSearch();
+      handleSelectAll();
+    }
+
+    /**
+     * 17) EVENT LISTENERS
+     */
     // Toggle dropdown when selected area is clicked
     document.getElementById('dropdownSelected').addEventListener('click', toggleDropdown);
 
@@ -481,6 +618,30 @@
 
     // When the card is clicked, pick a new random row
     document.getElementById('randomCard').addEventListener('click', pickRandomRow);
+
+    /* 18) HANDLE WINDOW RESIZE */
+    /**
+     * Handle window resize to re-fit text appropriately
+     */
+    window.addEventListener('resize', () => {
+      // Only adjust if there's content loaded and a row is currently displayed
+      if (rowsData.length > 0 && currentRandomRow) {
+        const titleEl = document.getElementById('selectedTitle');
+        const descEl = document.getElementById('selectedDescription');
+        const cardEl = document.getElementById('randomCard');
+
+        titleEl.textContent = currentRandomRow.title;
+        descEl.textContent = currentRandomRow.description;
+
+        // Fit the title text to the card only on larger screens
+        if (window.innerWidth > 768) {
+          fitTextToCard(cardEl, titleEl);
+        } else {
+          // Reset font size for mobile devices
+          titleEl.style.fontSize = ''; // Allows CSS to control the font size
+        }
+      }
+    });
   </script>
 </body>
 </html>
